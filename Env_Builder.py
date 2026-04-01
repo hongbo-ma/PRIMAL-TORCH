@@ -133,107 +133,41 @@ def get_key(dict, value):
 
 def getAstarDistanceMap(map: np.array, start: tuple, goal: tuple, isDiagonal: bool = False):
     """
-    returns a numpy array of same dims as map with the distance to the goal from each coord
-    :param map: a n by m np array, where -1 denotes obstacle
-    :param start: start_position
-    :param goal: goal_position
-    :return: optimal distance map
+    Returns a numpy array of same dims as map with the distance to the goal
+    from each coord. Uses scipy sparse Dijkstra for efficiency.
     """
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import dijkstra
 
-    def lowestF(fScore, openSet):
-        # find entry in openSet with lowest fScore
-        assert (len(openSet) > 0)
-        minF = 2 ** 31 - 1
-        minNode = None
-        for (i, j) in openSet:
-            if (i, j) not in fScore: continue
-            if fScore[(i, j)] < minF:
-                minF = fScore[(i, j)]
-                minNode = (i, j)
-        return minNode
+    h, w = map.shape
+    n = h * w
 
-    def getNeighbors(node):
-        # return set of neighbors to the given node
-        n_moves = 9 if isDiagonal else 5
-        neighbors = set()
-        for move in range(1, n_moves):  # we dont want to include 0 or it will include itself
-            direction = action2dir(move)
-            dx = direction[0]
-            dy = direction[1]
-            ax = node[0]
-            ay = node[1]
-            if (ax + dx >= map.shape[0] or ax + dx < 0 or ay + dy >= map.shape[
-                1] or ay + dy < 0):  # out of bounds
+    def idx(r, c):
+        return r * w + c
+
+    moves = [(0,1),(1,0),(0,-1),(-1,0)]
+
+    rows, cols, data = [], [], []
+    for r in range(h):
+        for c in range(w):
+            if map[r, c] == -1:
                 continue
-            if map[ax + dx, ay + dy] == -1:  # collide with static obstacle
-                continue
-            neighbors.add((ax + dx, ay + dy))
-        return neighbors
+            for dr, dc in moves:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < h and 0 <= nc < w and map[nr, nc] != -1:
+                    rows.append(idx(r, c))
+                    cols.append(idx(nr, nc))
+                    data.append(1.0)
 
-    # NOTE THAT WE REVERSE THE DIRECTION OF SEARCH SO THAT THE GSCORE WILL BE DISTANCE TO GOAL
-    start, goal = goal, start
-    start, goal = tuple(start), tuple(goal)
-    # The set of nodes already evaluated
-    closedSet = set()
+    graph = csr_matrix((data, (rows, cols)), shape=(n, n))
+    goal_idx = idx(int(goal[0]), int(goal[1]))
+    dist = dijkstra(graph, directed=True, indices=goal_idx, unweighted=True)
 
-    # The set of currently discovered nodes that are not evaluated yet.
-    # Initially, only the start node is known.
-    openSet = set()
-    openSet.add(start)
-
-    # For each node, which node it can most efficiently be reached from.
-    # If a node can be reached from many nodes, cameFrom will eventually contain the
-    # most efficient previous step.
-    cameFrom = dict()
-
-    # For each node, the cost of getting from the start node to that node.
-    gScore = dict()  # default value infinity
-
-    # The cost of going from start to start is zero.
-    gScore[start] = 0
-
-    # For each node, the total cost of getting from the start node to the goal
-    # by passing by that node. That value is partly known, partly heuristic.
-    fScore = dict()  # default infinity
-
-    # our heuristic is euclidean distance to goal
-    heuristic_cost_estimate = lambda x, y: math.hypot(x[0] - y[0], x[1] - y[1])
-
-    # For the first node, that value is completely heuristic.
-    fScore[start] = heuristic_cost_estimate(start, goal)
-
-    max_nodes = map.shape[0] * map.shape[1]
-
-    while len(openSet) != 0:
-        if len(closedSet) > max_nodes:
-            break
-        # current = the node in openSet having the lowest fScore value
-        current = lowestF(fScore, openSet)
-
-        openSet.remove(current)
-        closedSet.add(current)
-        for neighbor in getNeighbors(current):
-            if neighbor in closedSet:
-                continue  # Ignore the neighbor which is already evaluated.
-
-            if neighbor not in openSet:  # Discover a new node
-                openSet.add(neighbor)
-
-            # The distance from start to a neighbor
-            # in our case the distance between is always 1
-            tentative_gScore = gScore[current] + 1
-            if tentative_gScore >= gScore.get(neighbor, 2 ** 31 - 1):
-                continue  # This is not a better path.
-
-            # This path is the best until now. Record it!
-            cameFrom[neighbor] = current
-            gScore[neighbor] = tentative_gScore
-            fScore[neighbor] = gScore[neighbor] + heuristic_cost_estimate(neighbor, goal)
-
-            # parse through the gScores
-    Astar_map = map.copy()
-    for (i, j) in gScore:
-        Astar_map[i, j] = gScore[i, j]
+    Astar_map = map.astype(float).copy()
+    for r in range(h):
+        for c in range(w):
+            if map[r, c] != -1:
+                Astar_map[r, c] = dist[idx(r, c)]
     return Astar_map
 
 
