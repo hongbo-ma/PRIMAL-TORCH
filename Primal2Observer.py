@@ -49,24 +49,23 @@ class Primal2Observer(ObservationBuilder):
         centre = (self.observation_size - 1) / 2
         obs_shape = (self.observation_size, self.observation_size)
 
-        goal_map = np.zeros(obs_shape)
-        poss_map = np.zeros(obs_shape)
-        goals_map = np.zeros(obs_shape)
-        obs_map = np.zeros(obs_shape)
-        astar_map = np.zeros([self.num_future_steps, self.observation_size, self.observation_size])
-        astar_map_unpadded = np.zeros([self.num_future_steps, self.world.state.shape[0], self.world.state.shape[1]])
-        pathlength_map = np.zeros(obs_shape)
-        deltax_map = np.zeros(obs_shape)
-        deltay_map = np.zeros(obs_shape)
-        blocking_map = np.zeros(obs_shape)
+        goal_map      = np.zeros(obs_shape, dtype=np.float32)
+        poss_map      = np.zeros(obs_shape, dtype=np.float32)
+        goals_map     = np.zeros(obs_shape, dtype=np.float32)
+        obs_map       = np.zeros(obs_shape, dtype=np.float32)
+        astar_map     = np.zeros([self.num_future_steps, self.observation_size, self.observation_size], dtype=np.float32)
+        pathlength_map = np.zeros(obs_shape, dtype=np.float32)
+        deltax_map    = np.zeros(obs_shape, dtype=np.float32)
+        deltay_map    = np.zeros(obs_shape, dtype=np.float32)
+        blocking_map  = np.zeros(obs_shape, dtype=np.float32)
 
         time1 = time.time() - start_time
         start_time = time.time()
 
         # concatenate all_astar maps
-        other_agents = list(range(self.world.num_agents))  # needs to be 0-indexed for numpy magic below
-        other_agents.remove(agent_id - 1)  # 0-indexing again
-        astar_map_unpadded = np.zeros([self.num_future_steps, self.world.state.shape[0], self.world.state.shape[1]])
+        other_agents = list(range(self.world.num_agents))
+        other_agents.remove(agent_id - 1)
+        astar_map_unpadded = np.zeros([self.num_future_steps, self.world.state.shape[0], self.world.state.shape[1]], dtype=np.float32)
         astar_map_unpadded[:self.num_future_steps, max(0, top_left[0]):min(bottom_right[0], self.world.state.shape[0]),
         max(0, top_left[1]):min(bottom_right[1], self.world.state.shape[1])] = \
             np.sum(all_astar_maps[other_agents, :self.num_future_steps,
