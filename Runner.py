@@ -39,6 +39,8 @@ class Runner:
     """
 
     def __init__(self, metaAgentID, global_model):
+        import time
+        time.sleep(metaAgentID * 0.5)  # stagger GPU init
         self.metaAgentID  = metaAgentID
         self.global_model = global_model
         if torch.cuda.is_available():
