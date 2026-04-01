@@ -40,14 +40,8 @@ class Runner:
         self.global_model = global_model
         self.lock         = lock
 
-        if metaAgentID < NUM_IL_META_AGENTS:
-            self.device = torch.device('cpu')
-        else:
-            if torch.cuda.is_available():
-                gpu_id = (metaAgentID - NUM_IL_META_AGENTS) % torch.cuda.device_count()
-                self.device = torch.device(f'cuda:{gpu_id}')
-            else:
-                self.device = torch.device('cpu')
+        gpu_id = metaAgentID % torch.cuda.device_count() if torch.cuda.is_available() else 0
+        self.device = torch.device(f'cuda:{gpu_id}' if torch.cuda.is_available() else 'cpu')
 
         self.env = Primal2Env(
             num_agents=NUM_THREADS,
