@@ -1,6 +1,6 @@
 import copy
 from operator import sub, add
-import gym
+import gymnasium as gym
 import numpy as np
 import math, time
 import warnings
@@ -9,9 +9,79 @@ from od_mstar3 import od_mstar
 from od_mstar3 import cpp_mstar
 from GroupLock import Lock
 from matplotlib.colors import *
-from gym.envs.classic_control import rendering
 import imageio
-from gym import spaces
+from gymnasium import spaces
+
+# rendering shim: use pyglet directly, gym.envs.classic_control.rendering removed in gym>=0.26
+try:
+    from gymnasium.envs.classic_control import rendering
+except ImportError:
+    try:
+        import pyglet
+        from pyglet import gl
+
+        class _Viewer:
+            def __init__(self, width, height):
+                self.width  = width
+                self.height = height
+                self._window = pyglet.window.Window(width=width, height=height, visible=False)
+                self._geoms  = []
+                self._onetime_geoms = []
+
+            def add_geom(self, geom):
+                self._geoms.append(geom)
+
+            def add_onetime(self, geom):
+                self._onetime_geoms.append(geom)
+
+            def render(self, return_rgb_array=False):
+                self._window.switch_to()
+                self._window.dispatch_events()
+                gl.glClearColor(0.6, 0.6, 0.6, 1)
+                self._window.clear()
+                for g in self._geoms + self._onetime_geoms:
+                    g.render()
+                self._onetime_geoms = []
+                if return_rgb_array:
+                    buf = pyglet.image.get_buffer_manager().get_color_buffer()
+                    arr = np.frombuffer(buf.get_image_data().get_data('RGBA', buf.width * 4), dtype=np.uint8)
+                    arr = arr.reshape(buf.height, buf.width, 4)
+                    return arr[::-1, :, :3]
+                self._window.flip()
+                return None
+
+            def close(self):
+                self._window.close()
+
+        class _FilledPolygon:
+            def __init__(self, vertices):
+                self.vertices = vertices
+                self._color   = (0, 0, 0)
+                self._attrs   = []
+
+            def set_color(self, r, g, b):
+                self._color = (r, g, b)
+
+            def add_attr(self, attr):
+                self._attrs.append(attr)
+
+            def render(self):
+                gl.glBegin(gl.GL_POLYGON)
+                gl.glColor3f(*self._color)
+                for v in self.vertices:
+                    gl.glVertex2f(*v)
+                gl.glEnd()
+
+        class _Transform:
+            pass
+
+        class rendering:
+            Viewer         = _Viewer
+            FilledPolygon  = _FilledPolygon
+            Transform      = _Transform
+
+    except ImportError:
+        rendering = None
 
 
 def make_gif(images, fname):
