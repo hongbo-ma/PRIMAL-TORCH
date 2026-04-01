@@ -2,8 +2,10 @@ from Observer_Builder import ObservationBuilder
 import numpy as np
 import copy
 from Env_Builder import *
-
+import threading
 import time
+
+_astar_lock = threading.Lock()
 
 
 class Primal2Observer(ObservationBuilder):
@@ -198,7 +200,8 @@ class Primal2Observer(ObservationBuilder):
 
     def get_many(self, handles=None):
         observations = {}
-        all_astar_maps = self.get_astar_map()
+        with _astar_lock:
+            all_astar_maps = self.get_astar_map()
         if handles is None:
             handles = list(range(1, self.world.num_agents + 1))
 
