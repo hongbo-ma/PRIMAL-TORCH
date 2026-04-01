@@ -92,7 +92,8 @@ def main():
     # Ray: use all available GPUs
     ray.init(
         num_gpus=torch.cuda.device_count(),
-        object_store_memory=2 * 1024 ** 3,   # 2GB，避免 /dev/shm 耗尽
+        object_store_memory=8 * 1024 ** 3,
+        _memory=64 * 1024 ** 3,
         _system_config={"automatic_object_spilling_enabled": True},
     )
 

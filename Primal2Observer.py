@@ -261,29 +261,29 @@ class Primal2Observer(ObservationBuilder):
 
         astar_maps = {}
         for agentID in range(1, self.world.num_agents + 1):
-            astar_maps.update(
-                {agentID: np.zeros([self.num_future_steps, self.world.state.shape[0], self.world.state.shape[1]])})
+            astar_maps[agentID] = np.zeros(
+                [self.num_future_steps, self.world.state.shape[0], self.world.state.shape[1]],
+                dtype=np.float32)   # float32 instead of float64, halves memory
 
             distance_map0, start_pos0 = self.world.agents[agentID].distanceMap, self.world.agents[agentID].position
 
             astar_path = get_single_astar_path(distance_map0, start_pos0, self.num_future_steps)
 
-
-            if not len(astar_path) == self.num_future_steps:  # this agent reaches its goal during future steps
+            if not len(astar_path) == self.num_future_steps:
                 distance_map1, start_pos1 = self.world.agents[agentID].next_distanceMap, \
                                             self.world.agents[agentID].goal_pos
                 astar_path.extend(
                     get_single_astar_path(distance_map1, start_pos1, self.num_future_steps - len(astar_path)))
 
-            for i in range(self.num_future_steps - len(astar_path)):  # only happen when min_distance not sufficient
-                astar_path.extend([[astar_path[-1][-1]]])  # stay at the last pos
+            for i in range(self.num_future_steps - len(astar_path)):
+                astar_path.extend([[astar_path[-1][-1]]])
 
             assert len(astar_path) == self.num_future_steps
             for step in range(self.num_future_steps):
                 for cell in astar_path[step]:
                     astar_maps[agentID][step, cell[0], cell[1]] = 1
 
-        return np.asarray([astar_maps[i] for i in range(1, self.world.num_agents + 1)])
+        return np.asarray([astar_maps[i] for i in range(1, self.world.num_agents + 1)], dtype=np.float32)
 
     def get_blocking(self, corridor_id, reverse, agent_id, dead_end):
         def get_last_pos(agentID, position):
