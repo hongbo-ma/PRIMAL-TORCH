@@ -35,8 +35,10 @@ def apply_gradients(global_model, optimizer, gradient_list, lock, step):
 
 def worker_process(metaAgentID, global_model, lock, result_queue, episode_counter):
     """Each subprocess runs this function."""
-    # must set before importing torch ops
+    import os
     os.environ["TORCH_DISABLE_ONEDNN"] = "1"
+    os.environ["ONEDNN_PRIMITIVE_CACHE_CAPACITY"] = "0"
+    os.environ["OMP_NUM_THREADS"] = "1"
 
     from Runner import Runner
 
