@@ -10,22 +10,60 @@ os.environ["MKL_NUM_THREADS"] = "1"
 import sys
 import traceback
 import threading
+import time
 import numpy as np
 import torch
+import psutil
+
+# ── ANSI colours ──────────────────────────────
+RED    = "\033[91m"
+YELLOW = "\033[93m"
+GREEN  = "\033[92m"
+CYAN   = "\033[96m"
+RESET  = "\033[0m"
+
+_monitor_stop = threading.Event()
+
+def _mem_monitor(interval=1.0):
+    proc = psutil.Process()
+    while not _monitor_stop.is_set():
+        ram_used = proc.memory_info().rss / 1024**3
+        ram_avail = psutil.virtual_memory().available / 1024**3
+        gpu_lines = []
+        if torch.cuda.is_available():
+            for i in range(torch.cuda.device_count()):
+                used  = torch.cuda.memory_allocated(i) / 1024**3
+                total = torch.cuda.get_device_properties(i).total_memory / 1024**3
+                pct   = used / total * 100
+                color = RED if pct > 80 else YELLOW if pct > 50 else GREEN
+                gpu_lines.append(f"GPU{i}: {color}{used:.2f}/{total:.1f}GB ({pct:.0f}%){RESET}")
+        ram_color = RED if ram_avail < 4 else YELLOW if ram_avail < 16 else GREEN
+        gpu_str = "  ".join(gpu_lines) if gpu_lines else "no GPU"
+        print(f"{CYAN}[MEM]{RESET} RAM proc={ram_used:.2f}GB avail={ram_color}{ram_avail:.1f}GB{RESET}  {gpu_str}", flush=True)
+        time.sleep(interval)
+
+def start_monitor(interval=2.0):
+    _monitor_stop.clear()
+    t = threading.Thread(target=_mem_monitor, args=(interval,), daemon=True)
+    t.start()
+    return t
+
+def stop_monitor():
+    _monitor_stop.set()
 
 
 def section(title):
-    print(f"\n{'='*60}")
-    print(f"  {title}")
-    print('='*60)
+    print(f"\n{CYAN}{'='*60}{RESET}")
+    print(f"{CYAN}  {title}{RESET}")
+    print(f"{CYAN}{'='*60}{RESET}")
 
 
 def ok(msg):
-    print(f"  [PASS] {msg}")
+    print(f"  {GREEN}[PASS]{RESET} {msg}")
 
 
 def fail(msg, e):
-    print(f"  [FAIL] {msg}")
+    print(f"  {RED}[FAIL]{RESET} {msg}")
     traceback.print_exc()
     sys.exit(1)
 
@@ -34,6 +72,7 @@ def fail(msg, e):
 # Step 1: GPU basic
 # ─────────────────────────────────────────────
 section("Step 1: GPU availability")
+start_monitor(interval=2.0)
 try:
     import torch
     print(f"  PyTorch: {torch.__version__}")
@@ -210,5 +249,6 @@ except Exception as e:
 # ─────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────
+stop_monitor()
 section("All steps completed")
-print("  Ready to run full training: python driver.py")
+print(f"  {GREEN}Ready to run full training: python driver.py{RESET}")
