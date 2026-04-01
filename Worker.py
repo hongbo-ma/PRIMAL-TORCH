@@ -101,7 +101,18 @@ class Worker:
 
         hx, cx = rnn_state0
         self.local_model.zero_grad()
-        policy, value, valids, _, _ = self.local_model(obs_t, goal_t, hx, cx)
+        # roll out LSTM step by step (rnn_state0 is batch=1)
+        policies, values, validss = [], [], []
+        for t in range(len(observations)):
+            obs_t_step  = torch.from_numpy(np.ascontiguousarray(observations[t:t+1], dtype=np.float32)).to(self.device)
+            goal_t_step = torch.from_numpy(np.ascontiguousarray(goals[t:t+1], dtype=np.float32)).to(self.device)
+            p, v, va, hx, cx = self.local_model(obs_t_step, goal_t_step, hx, cx)
+            policies.append(p)
+            values.append(v)
+            validss.append(va)
+        policy = torch.cat(policies, dim=0)
+        value  = torch.cat(values,  dim=0)
+        valids = torch.cat(validss, dim=0)
 
         # losses (matching original formulation)
         value_loss = 0.1 * (tv_t * (ret_t - value.squeeze(-1)) ** 2).mean()
