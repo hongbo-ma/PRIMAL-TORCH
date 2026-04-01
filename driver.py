@@ -24,7 +24,11 @@ def apply_gradients(global_model, optimizer, gradient_list, lock, step):
         optimizer.zero_grad()
         for grads in gradient_list:
             for param, g in zip(global_model.parameters(), grads):
-                g_tensor = torch.FloatTensor(np.ascontiguousarray(g))
+                if isinstance(g, torch.Tensor):
+                    g_np = g.detach().cpu().numpy()
+                else:
+                    g_np = g
+                g_tensor = torch.FloatTensor(np.ascontiguousarray(g_np))
                 if param.grad is None:
                     param.grad = g_tensor.clone()
                 else:

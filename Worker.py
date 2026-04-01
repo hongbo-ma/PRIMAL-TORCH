@@ -68,7 +68,8 @@ class Worker:
         imitation_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.local_model.parameters(), GRAD_CLIP)
 
-        grads = [p.grad.clone() if p.grad is not None else torch.zeros_like(p)
+        grads = [p.grad.detach().cpu().clone().numpy() if p.grad is not None
+                 else np.zeros(p.shape)
                  for p in self.local_model.parameters()]
         return [imitation_loss.item()], grads
 
@@ -134,7 +135,8 @@ class Worker:
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.local_model.parameters(), GRAD_CLIP)
 
-        grads = [p.grad.clone() if p.grad is not None else torch.zeros_like(p)
+        grads = [p.grad.detach().cpu().clone().numpy() if p.grad is not None
+                 else np.zeros(p.shape)
                  for p in self.local_model.parameters()]
 
         metrics = [value_loss.item(), policy_loss.item(), valid_loss.item(),
