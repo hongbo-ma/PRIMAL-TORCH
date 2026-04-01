@@ -47,13 +47,13 @@ class Worker:
         rollout row: [obs, goal_vec, optimal_action, train_imitation_flag]
         """
         rollout = np.array(rollout, dtype=object)
-        obs_stack = np.stack(rollout[:, 0])
+        obs_stack = np.stack(rollout[:, 0]).astype(np.float32, copy=True)
         if obs_stack.ndim != 4:
             raise RuntimeError(f"obs_batch shape error: {obs_stack.shape}, expected (B, C, H, W)")
-        obs_batch    = torch.FloatTensor(obs_stack).to(self.device)
-        goal_batch   = torch.FloatTensor(np.stack(rollout[:, 1])).to(self.device)
+        obs_batch    = torch.from_numpy(obs_stack).to(self.device)
+        goal_batch   = torch.from_numpy(np.stack(rollout[:, 1]).astype(np.float32, copy=True)).to(self.device)
         opt_actions  = torch.LongTensor(np.stack(rollout[:, 2])).to(self.device)
-        train_flags  = torch.FloatTensor(rollout[:, 3].astype(float)).to(self.device)
+        train_flags  = torch.FloatTensor(rollout[:, 3].astype(np.float32)).to(self.device)
 
         hx, cx = self.local_model.get_init_hidden(batch_size=len(rollout), device=self.device)
 
