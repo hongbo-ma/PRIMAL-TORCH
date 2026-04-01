@@ -1,3 +1,6 @@
+import os
+os.environ["TORCH_DISABLE_ONEDNN"] = "1"
+os.environ["ONEDNN_PRIMITIVE_CACHE_CAPACITY"] = "0"
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

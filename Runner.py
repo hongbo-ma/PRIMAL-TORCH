@@ -1,8 +1,5 @@
 import numpy as np
 import threading
-import os
-os.environ["TORCH_DISABLE_ONEDNN"] = "1"
-os.environ["ONEDNN_PRIMITIVE_CACHE_CAPACITY"] = "0"
 import torch
 import ray
 
