@@ -38,10 +38,14 @@ class Runner:
     but we keep a local copy for gradient computation to avoid race conditions.
     """
 
-    def __init__(self, metaAgentID, global_model, device):
+    def __init__(self, metaAgentID, global_model):
         self.metaAgentID  = metaAgentID
         self.global_model = global_model
-        self.device       = device
+        if torch.cuda.is_available():
+            gpu_id = metaAgentID % torch.cuda.device_count()
+            self.device = torch.device(f'cuda:{gpu_id}')
+        else:
+            self.device = torch.device('cpu')
 
         self.env = Primal2Env(
             num_agents=NUM_THREADS,

@@ -75,7 +75,7 @@ def main():
         print(f"Loaded model at step {step}")
 
     # create runners — all share the same global_model reference
-    runners = [Runner(i, global_model, device) for i in range(NUM_META_AGENTS)]
+    runners = [Runner(i, global_model) for i in range(NUM_META_AGENTS)]
 
     result_queue = queue.Queue(maxsize=NUM_META_AGENTS * 4)
     stop_event   = threading.Event()
