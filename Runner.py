@@ -65,7 +65,7 @@ class Runner:
         """weights: list of numpy arrays (one per parameter)"""
         with torch.no_grad():
             for param, w in zip(self.local_model.parameters(), weights):
-                param.copy_(torch.FloatTensor(w).to(self.device))
+                param.copy_(torch.FloatTensor(np.array(w)).to(self.device))
 
     def get_weights(self):
         return [p.cpu().numpy() for p in self.local_model.parameters()]

@@ -90,7 +90,11 @@ def main():
         os.makedirs(path, exist_ok=True)
 
     # Ray: use all available GPUs
-    ray.init(num_gpus=torch.cuda.device_count())
+    ray.init(
+        num_gpus=torch.cuda.device_count(),
+        object_store_memory=2 * 1024 ** 3,   # 2GB，避免 /dev/shm 耗尽
+        _system_config={"automatic_object_spilling_enabled": True},
+    )
 
     # global model + optimizer (on GPU 0 if available)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
