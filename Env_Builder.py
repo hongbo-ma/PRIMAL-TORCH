@@ -202,7 +202,11 @@ def getAstarDistanceMap(map: np.array, start: tuple, goal: tuple, isDiagonal: bo
     # For the first node, that value is completely heuristic.
     fScore[start] = heuristic_cost_estimate(start, goal)
 
+    max_nodes = map.shape[0] * map.shape[1]
+
     while len(openSet) != 0:
+        if len(closedSet) > max_nodes:
+            break
         # current = the node in openSet having the lowest fScore value
         current = lowestF(fScore, openSet)
 
