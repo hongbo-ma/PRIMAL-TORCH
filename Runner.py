@@ -30,12 +30,10 @@ class SimpleCoordinator:
 
 
 class Runner:
-    """
-    Ray remote actor. Holds a local copy of the model and runs episodes.
-    Gradient computation happens here; gradients are sent back to driver.
-    """
-
     def __init__(self, metaAgentID):
+        import os
+        os.environ["TORCH_DISABLE_ONEDNN"] = "1"
+        os.environ["ONEDNN_PRIMITIVE_CACHE_CAPACITY"] = "0"
         self.metaAgentID = metaAgentID
 
         # device: IL agents run on CPU, RL agents on GPU if available

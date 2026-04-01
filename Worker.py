@@ -90,14 +90,14 @@ class Worker:
         advantages     = discount(advantages, gamma)
 
         # to tensors
-        obs_t    = torch.FloatTensor(observations).to(self.device)
-        goal_t   = torch.FloatTensor(goals).to(self.device)
+        obs_t    = torch.from_numpy(np.ascontiguousarray(observations, dtype=np.float32)).to(self.device)
+        goal_t   = torch.from_numpy(np.ascontiguousarray(goals, dtype=np.float32)).to(self.device)
         act_t    = torch.LongTensor(actions).to(self.device)
-        ret_t    = torch.FloatTensor(disc_returns).to(self.device)
-        adv_t    = torch.FloatTensor(advantages).to(self.device)
-        tv_t     = torch.FloatTensor(train_value).to(self.device)
-        tp_t     = torch.FloatTensor(train_policy).to(self.device)
-        valid_t  = torch.FloatTensor(valids_mask).to(self.device)
+        ret_t    = torch.from_numpy(np.ascontiguousarray(disc_returns, dtype=np.float32)).to(self.device)
+        adv_t    = torch.from_numpy(np.ascontiguousarray(advantages, dtype=np.float32)).to(self.device)
+        tv_t     = torch.from_numpy(np.ascontiguousarray(train_value, dtype=np.float32)).to(self.device)
+        tp_t     = torch.from_numpy(np.ascontiguousarray(train_policy, dtype=np.float32)).to(self.device)
+        valid_t  = torch.from_numpy(np.ascontiguousarray(valids_mask, dtype=np.float32)).to(self.device)
 
         hx, cx = rnn_state0
         self.local_model.zero_grad()
