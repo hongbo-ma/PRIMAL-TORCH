@@ -1,5 +1,7 @@
 import os
 os.environ["TORCH_DISABLE_ONEDNN"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
 
 import numpy as np
 import threading
@@ -31,17 +33,15 @@ class SimpleCoordinator:
 
 class Runner:
     """
-    Runs in a subprocess. Holds a local model copy, syncs weights from
-    global_model (shared memory), computes gradients, returns them via queue.
+    Single-process, single-thread runner.
+    Shares global_model directly — no weight copying needed for inference,
+    but we keep a local copy for gradient computation to avoid race conditions.
     """
 
-    def __init__(self, metaAgentID, global_model, lock):
+    def __init__(self, metaAgentID, global_model, device):
         self.metaAgentID  = metaAgentID
         self.global_model = global_model
-        self.lock         = lock
-
-        gpu_id = metaAgentID % torch.cuda.device_count() if torch.cuda.is_available() else 0
-        self.device = torch.device(f'cuda:{gpu_id}' if torch.cuda.is_available() else 'cpu')
+        self.device       = device
 
         self.env = Primal2Env(
             num_agents=NUM_THREADS,
@@ -54,8 +54,15 @@ class Runner:
             IsDiagonal=DIAG_MVMT,
             isOneShot=False)
 
+        # local model for gradient computation
         self.local_model = ACNet(NUM_CHANNEL, OBS_SIZE, a_size).to(self.device)
         self.local_model.train()
+
+    def get_global_weights(self):
+        """Snapshot current global weights as numpy arrays."""
+        with torch.no_grad():
+            return [p.detach().cpu().numpy().copy()
+                    for p in self.global_model.parameters()]
 
     def set_weights(self, weights):
         with torch.no_grad():
