@@ -102,7 +102,7 @@ namespace mstar{
   template <class T, template<class, class...> class TT, class... args>
   bool add_col_set_in_place(TT<T, args...> c1, TT<T, args...> &c2){
     bool changed = false;
-    // TODO: This could be more efficient
+    //This could be more efficient
     while (c1.size() > 0){
       int i = 0;
       // whether c1[-1] overlaps any element of c2

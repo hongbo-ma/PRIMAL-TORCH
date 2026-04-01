@@ -95,7 +95,7 @@ namespace mstar{
     OdPath find_path(OdCoord init_pos);
 
   private:
-    /**TODO: fix
+    /** fix
      * This is kind of horrifying, but I cannot store the OdMstar objects
      * directly in the unordered map, as I get ungodly errors that look
      * like they come from an allocator.  Adding copy constructor and
@@ -223,7 +223,7 @@ namespace mstar{
      * values of the vertices on the path so we can end the moment a
      * vertex on a cached path is expanded.
      *
-     * TODO: double check that making the heuristic inconsistent in this
+     *double check that making the heuristic inconsistent in this
      * fashion is OK.
      *
      * @param vert the vertex to trace the path to

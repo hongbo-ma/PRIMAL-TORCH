@@ -66,7 +66,7 @@ def maze_generator(env_size=(10, 70), wall_components=(1, 8), obstacle_density=N
     min_component, max_component = wall_components
     num_components = np.random.randint(low=min_component, high=max_component + 1)
     assert min_size > 5
-    # todo: write comments
+    #
     """
     num_agents,
     IsDiagonal,
