@@ -1,7 +1,9 @@
+import os
+os.environ["TORCH_DISABLE_ONEDNN"] = "1"
+
 import numpy as np
 import threading
 import torch
-import ray
 
 from ACNet import ACNet
 import GroupLock
@@ -13,8 +15,6 @@ from parameters import *
 
 
 class SimpleCoordinator:
-    """Drop-in replacement for tf.train.Coordinator."""
-
     def __init__(self):
         self._stop_event = threading.Event()
 
@@ -30,17 +30,24 @@ class SimpleCoordinator:
 
 
 class Runner:
-    def __init__(self, metaAgentID):
-        import os
-        os.environ["TORCH_DISABLE_ONEDNN"] = "1"
-        os.environ["ONEDNN_PRIMITIVE_CACHE_CAPACITY"] = "0"
-        self.metaAgentID = metaAgentID
+    """
+    Runs in a subprocess. Holds a local model copy, syncs weights from
+    global_model (shared memory), computes gradients, returns them via queue.
+    """
 
-        # device: IL agents run on CPU, RL agents on GPU if available
+    def __init__(self, metaAgentID, global_model, lock):
+        self.metaAgentID  = metaAgentID
+        self.global_model = global_model
+        self.lock         = lock
+
         if metaAgentID < NUM_IL_META_AGENTS:
             self.device = torch.device('cpu')
         else:
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            if torch.cuda.is_available():
+                gpu_id = (metaAgentID - NUM_IL_META_AGENTS) % torch.cuda.device_count()
+                self.device = torch.device(f'cuda:{gpu_id}')
+            else:
+                self.device = torch.device('cpu')
 
         self.env = Primal2Env(
             num_agents=NUM_THREADS,
@@ -56,33 +63,21 @@ class Runner:
         self.local_model = ACNet(NUM_CHANNEL, OBS_SIZE, a_size).to(self.device)
         self.local_model.train()
 
-    # ------------------------------------------------------------------
-    # weight sync
-    # ------------------------------------------------------------------
     def set_weights(self, weights):
-        """weights: list of numpy arrays (one per parameter)"""
         with torch.no_grad():
             for param, w in zip(self.local_model.parameters(), weights):
-                param.copy_(torch.FloatTensor(np.array(w)).to(self.device))
+                param.copy_(torch.FloatTensor(np.ascontiguousarray(w)).to(self.device))
 
-    def get_weights(self):
-        return [p.cpu().numpy() for p in self.local_model.parameters()]
-
-    # ------------------------------------------------------------------
-    # RL multi-threaded job
-    # ------------------------------------------------------------------
     def multiThreadedJob(self, episodeNumber):
-        workers       = []
+        workers        = []
         worker_threads = []
-        workerNames   = ["worker_" + str(i + 1) for i in range(NUM_THREADS)]
-        groupLock     = GroupLock.GroupLock([workerNames, workerNames])
-
-        coord = SimpleCoordinator()
+        workerNames    = ["worker_" + str(i + 1) for i in range(NUM_THREADS)]
+        groupLock      = GroupLock.GroupLock([workerNames, workerNames])
+        coord          = SimpleCoordinator()
 
         for a in range(NUM_THREADS):
-            agentID = a + 1
             workers.append(Worker(
-                self.metaAgentID, agentID, NUM_THREADS,
+                self.metaAgentID, a + 1, NUM_THREADS,
                 self.env, self.local_model, self.device,
                 groupLock, learningAgent=True))
 
@@ -108,18 +103,15 @@ class Runner:
         avg_loss = list(np.mean(np.array(loss_metrics), axis=0)) if loss_metrics else [0.0] * 6
 
         if perf_metrics:
-            pm = np.array(perf_metrics)
+            pm       = np.array(perf_metrics)
             avg_perf = list(np.mean(pm[:, :4], axis=0))
             avg_perf += [np.sum(pm[:, 4]), np.sum(pm[:, 5])]
             all_metrics = avg_loss + avg_perf
         else:
             all_metrics = avg_loss
 
-        return jobResults, all_metrics, False   # is_imitation=False
+        return jobResults, all_metrics, False
 
-    # ------------------------------------------------------------------
-    # IL job
-    # ------------------------------------------------------------------
     def imitationLearningJob(self, episodeNumber):
         worker = Worker(
             self.metaAgentID, None, NUM_THREADS,
@@ -128,13 +120,10 @@ class Runner:
 
         gradients, losses = worker.imitation_learning_only(episodeNumber)
         mean_loss = [np.mean(losses)] if losses else [0.0]
-        return gradients, mean_loss, True   # is_imitation=True
+        return gradients, mean_loss, True
 
-    # ------------------------------------------------------------------
-    # main entry point called by driver
-    # ------------------------------------------------------------------
     def job(self, global_weights, episodeNumber):
-        print(f"episode {episodeNumber} | metaAgent {self.metaAgentID}")
+        print(f"episode {episodeNumber} | metaAgent {self.metaAgentID}", flush=True)
         self.set_weights(global_weights)
 
         if self.metaAgentID < NUM_IL_META_AGENTS:
@@ -150,15 +139,3 @@ class Runner:
             "is_imitation":   is_imitation,
         }
         return jobResults, metrics, info
-
-
-@ray.remote(num_cpus=3, num_gpus=1.0 / max(1, NUM_META_AGENTS - NUM_IL_META_AGENTS))
-class RLRunner(Runner):
-    def __init__(self, metaAgentID):
-        super().__init__(metaAgentID)
-
-
-@ray.remote(num_cpus=1, num_gpus=0)
-class imitationRunner(Runner):
-    def __init__(self, metaAgentID):
-        super().__init__(metaAgentID)
